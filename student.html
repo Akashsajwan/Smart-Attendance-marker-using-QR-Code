@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student – Attendance</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="nav"><a href="index.html">Home</a> <a href="student.html">Student</a></div>
+
+  <div class="box" id="step1">
+    <h2>Step 1 – Who are you?</h2>
+    <p class="small">Roll number and name. One attendance per class.</p>
+    <form id="formIdentify">
+      <label>Roll number</label>
+      <input type="text" id="rollNo" placeholder="e.g. R001" required>
+      <label>Name</label>
+      <input type="text" id="name" placeholder="Your name" required>
+      <button type="submit" class="btn">Next</button>
+    </form>
+    <div id="msg1"></div>
+  </div>
+
+  <div class="box" id="step2" style="display: none;">
+    <p class="small"><strong id="showName"></strong> · <span id="showRoll"></span></p>
+    <h2>Step 2 – Enter code</h2>
+    <p class="small">You can type the 5-digit code or scan the QR.</p>
+    <p class="small">Location is optional (for classroom check). On phone, it often works only over <strong>HTTPS</strong>.</p>
+    <button type="button" class="btn btn2" id="btnLocation">Allow location</button>
+    <span id="locationStatus" class="small"></span>
+
+    <p class="small" style="margin-top: 0.75rem;">Scan from camera (optional):</p>
+    <button type="button" class="btn btn2" id="btnScan">Start QR scan</button>
+    <div id="scanArea" class="small" style="display:none; margin-top:0.5rem;">
+      <video id="scanVideo" style="width:100%; max-height:220px; background:#000;" playsinline></video>
+      <button type="button" class="btn btn2" id="btnStopScan" style="margin-top:0.5rem;">Stop camera</button>
+      <div id="scanStatus" class="small"></div>
+    </div>
+
+    <label style="margin-top:0.75rem;">Code</label>
+    <input type="text" id="code" placeholder="12345" maxlength="5" inputmode="numeric">
+    <button type="button" class="btn" id="btnSubmit">Submit</button>
+    <div id="msg2"></div>
+    <p class="small" style="margin-top: 0.5rem;"><a href="student.html">Different roll / name</a></p>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+  <script>
+    var student = null;
+    var cachedLat = null;
+    var cachedLng = null;
+    var cachedAcc = null;
+    var scanStream = null;
+    var scanTimer = null;
+
+    function showMsg(elId, html, isError) {
+      var el = document.getElementById(elId);
+      el.innerHTML = html ? '<p class="msg ' + (isError ? 'error' : 'success') + '">' + html + '</p>' : '';
+    }
+
+    function getLocation() {
+      if (!navigator.geolocation) {
+        document.getElementById('locationStatus').textContent = ' Not supported.';
+        return Promise.resolve(null);
+      }
+      return new Promise(function(resolve) {
+        var opts = { enableHighAccuracy: false, timeout: 20000, maximumAge: 300000 };
+        navigator.geolocation.getCurrentPosition(
+          function(pos) {
+            cachedLat = pos.coords.latitude;
+            cachedLng = pos.coords.longitude;
+            cachedAcc = pos.coords.accuracy;
+            document.getElementById('locationStatus').textContent = ' Location allowed (±' + Math.round(cachedAcc || 0) + 'm).';
+            resolve({ lat: cachedLat, lng: cachedLng, accuracy: cachedAcc });
+          },
+          function(err) {
+            var statusEl = document.getElementById('locationStatus');
+            if (err.code === 1) {
+              statusEl.innerHTML = ' Blocked. On phone use <strong>https://</strong> (not http) to get the popup, or continue without&mdash;attendance still works.';
+            } else if (err.code === 2) {
+              statusEl.textContent = ' Unavailable. Attendance works without location.';
+            } else {
+              statusEl.textContent = ' Timeout. Attendance works without location.';
+            }
+            resolve(null);
+          },
+          opts
+        );
+      });
+    }
+
+    document.getElementById('btnLocation').onclick = function() {
+      document.getElementById('locationStatus').textContent = ' Asking for permission…';
+      getLocation();
+    };
+
+    async function startScan() {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        document.getElementById('scanStatus').textContent = ' Camera not supported in this browser.';
+        return;
+      }
+      var video = document.getElementById('scanVideo');
+      var area = document.getElementById('scanArea');
+      var statusEl = document.getElementById('scanStatus');
+      area.style.display = 'block';
+      statusEl.textContent = ' Opening camera…';
+      try {
+        scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        video.srcObject = scanStream;
+        await video.play();
+        statusEl.textContent = ' Point camera at QR.';
+        if (!scanTimer) {
+          var canvas = document.createElement('canvas');
+          var ctx = canvas.getContext('2d');
+          scanTimer = setInterval(function() {
+            if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            var code = jsQR(imageData.data, canvas.width, canvas.height);
+            if (code && code.data) {
+              var raw = String(code.data || '').trim();
+              var tokenVal = raw;
+              try {
+                var parsed = JSON.parse(raw);
+                if (parsed && (parsed.token || parsed.code)) {
+                  tokenVal = String(parsed.token || parsed.code);
+                }
+              } catch (e) {}
+              tokenVal = tokenVal.replace(/\\D/g, '').slice(0, 5);
+              if (tokenVal) {
+                document.getElementById('code').value = tokenVal;
+                statusEl.textContent = ' Scanned code: ' + tokenVal + '. You can now tap Submit.';
+                stopScan();
+              }
+            }
+          }, 400);
+        }
+      } catch (e) {
+        statusEl.textContent = ' Could not open camera (permission denied or in use).';
+      }
+    }
+
+    function stopScan() {
+      var area = document.getElementById('scanArea');
+      var statusEl = document.getElementById('scanStatus');
+      if (scanTimer) {
+        clearInterval(scanTimer);
+        scanTimer = null;
+      }
+      if (scanStream) {
+        scanStream.getTracks().forEach(function(t) { t.stop(); });
+        scanStream = null;
+      }
+      statusEl.textContent = '';
+      area.style.display = 'none';
+    }
+
+    document.getElementById('btnScan').onclick = startScan;
+    document.getElementById('btnStopScan').onclick = stopScan;
+
+    document.getElementById('formIdentify').onsubmit = async function(e) {
+      e.preventDefault();
+      var roll = document.getElementById('rollNo').value.trim().toUpperCase();
+      var name = document.getElementById('name').value.trim();
+      showMsg('msg1', '');
+      var r = await fetch('/api/students/identify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roll_no: roll, name: name }) });
+      var data = await r.json().catch(function() { return {}; });
+      if (!r.ok) { showMsg('msg1', data.error || 'Wrong roll or name.', true); return; }
+      student = { id: data.student_id, name: data.name, roll_no: data.roll_no };
+      document.getElementById('step1').style.display = 'none';
+      document.getElementById('step2').style.display = 'block';
+      document.getElementById('showName').textContent = data.name;
+      document.getElementById('showRoll').textContent = data.roll_no;
+      cachedLat = null;
+      cachedLng = null;
+      document.getElementById('locationStatus').textContent = '';
+    };
+
+    document.getElementById('btnSubmit').onclick = async function() {
+      var code = document.getElementById('code').value.trim().replace(/\D/g, '').slice(0, 5);
+      if (!code) { showMsg('msg2', 'Enter the 5-digit code.', true); return; }
+      if (!student) return;
+      var fp = 'fp_' + (navigator.userAgent + screen.width + screen.height).length;
+      var body = { token: code, student_id: student.id, device_fingerprint: fp };
+      if (cachedLat != null && cachedLng != null) {
+        body.lat = cachedLat;
+        body.lng = cachedLng;
+        if (cachedAcc != null) body.accuracy = cachedAcc;
+      } else if (navigator.geolocation) {
+        showMsg('msg2', 'Getting location…', false);
+        try {
+          var loc = await getLocation();
+          if (loc) { body.lat = loc.lat; body.lng = loc.lng; if (loc.accuracy != null) body.accuracy = loc.accuracy; }
+        } catch (e) {}
+        showMsg('msg2', '');
+      }
+      var r = await fetch('/api/attendance', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      var data = await r.json().catch(function() { return {}; });
+      if (!r.ok) { showMsg('msg2', data.error || 'Could not mark.', true); return; }
+      showMsg('msg2', 'Done. Marked as <strong>' + data.status + '</strong>.', false);
+      document.getElementById('code').value = '';
+    };
+  </script>
+</body>
+</html>

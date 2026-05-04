@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Teacher – Smart Attendance</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="nav">
+    <a href="index.html">Home</a> <a href="teacher.html">Teacher</a>
+    <span id="teacherNav" style="display: none; margin-left: auto;">Logged in as <strong id="teacherNameNav"></strong> · <button type="button" class="btn btn2" style="padding: 0.25rem 0.5rem; font-size: 0.85rem;" id="logoutBtn">Logout</button></span>
+  </div>
+
+  <div id="authPanel" class="box">
+    <h2>Register or login</h2>
+    <p class="small">Register once, then login to create sessions and show QR/code.</p>
+    <div class="tabs">
+      <button type="button" class="tab-btn active" data-tab="register">Register</button>
+      <button type="button" class="tab-btn" data-tab="login">Login</button>
+    </div>
+    <form id="registerForm">
+      <label>Email</label>
+      <input type="email" id="regEmail" placeholder="you@college.edu" required>
+      <label>Full name</label>
+      <input type="text" id="regName" placeholder="Your name" required>
+      <button type="submit" class="btn">Register</button>
+    </form>
+    <form id="loginForm" style="display: none;">
+      <label>Email</label>
+      <input type="email" id="loginEmail" placeholder="you@college.edu" required>
+      <button type="submit" class="btn">Login</button>
+    </form>
+    <div id="authMessage"></div>
+  </div>
+
+  <div id="dashboardPanel" style="display: none;">
+    <div class="sect-tabs">
+      <button type="button" class="section-tab active" data-section="create">Create session</button>
+      <button type="button" class="section-tab" data-section="history">Attendance history</button>
+    </div>
+
+    <div id="sectionCreate" class="sect active">
+      <div class="box">
+        <h2>Create new session</h2>
+        <form id="createSession">
+          <label>Subject</label>
+          <select id="subjectId" required><option value="">Loading...</option></select>
+          <p class="small"><a href="#" id="linkAddSubjectCreate">Add subject</a> · <a href="#" id="linkEditSubjectCreate">Edit subject</a></p>
+          <div id="addSubjectBoxCreate" style="display: none;">
+            <label>New subject name</label>
+            <input type="text" id="newSubjectNameCreate" placeholder="e.g. Mathematics">
+            <label>Subject code</label>
+            <input type="text" id="newSubjectCodeCreate" placeholder="e.g. MATH101">
+            <button type="button" class="btn btn2" id="btnAddSubjectCreate">Add</button>
+          </div>
+          <div id="editSubjectBoxCreate" style="display: none;">
+            <label>Subject name</label>
+            <input type="text" id="editSubjectNameCreate" placeholder="Name">
+            <label>Subject code</label>
+            <input type="text" id="editSubjectCodeCreate" placeholder="Code">
+            <button type="button" class="btn btn2" id="btnSaveSubjectCreate">Save</button>
+          </div>
+          <input type="hidden" id="teacherId">
+          <label>Class start</label>
+          <div class="dt-row">
+            <label>Date</label>
+            <select id="startMonth" required></select>
+            <select id="startDay" required></select>
+            <select id="startYear" required></select>
+            <label>Time</label>
+            <select id="startHour" required></select>
+            <select id="startMinute" required></select>
+          </div>
+          <label>Class end</label>
+          <div class="dt-row">
+            <select id="endMonth" required></select>
+            <select id="endDay" required></select>
+            <select id="endYear" required></select>
+            <select id="endHour" required></select>
+            <select id="endMinute" required></select>
+          </div>
+          <label><input type="checkbox" id="enforceLocation"> Enforce location check</label>
+          <div id="locFields" style="display: none;">
+            <label>Classroom latitude</label>
+            <input type="number" id="classroomLat" step="0.000001" placeholder="28.6139">
+            <label>Classroom longitude</label>
+            <input type="number" id="classroomLng" step="0.000001" placeholder="77.2090">
+            <button type="button" class="btn btn2" id="useMyLocation">Use my location</button>
+          </div>
+          <button type="submit" class="btn">Create session</button>
+        </form>
+        <p class="small" style="margin-top: 0.5rem;">Use button below to set start = now, end = now + 1 hr.</p>
+        <button type="button" class="btn btn2" id="setNowBtn">Set now</button>
+      </div>
+
+      <div class="box" id="qrPanel" style="display: none;">
+        <h2>QR & code (refreshes every 45s)</h2>
+        <div id="qrContainer"></div>
+        <p class="small">Session: <span id="qrSessionId"></span> · <span id="qrTimer">--</span></p>
+        <button type="button" class="btn btn2" id="refreshQr">Refresh QR</button>
+        <button type="button" class="btn btn-danger" id="stopAttendanceBtn">Stop attendance</button>
+        <p id="sessionStoppedMsg" class="msg" style="display: none;"></p>
+      </div>
+
+      <div class="box" id="attendancePanel" style="display: none;">
+        <h2>Attendance list</h2>
+        <button type="button" class="btn btn2" id="loadAttendance">Refresh</button>
+        <div id="attendanceList"></div>
+      </div>
+    </div>
+
+    <div id="sectionHistory" class="sect">
+      <div class="box">
+        <h2>Attendance history</h2>
+        <p class="small">Click View to see list; Edit to change subject, date, time.</p>
+        <button type="button" class="btn btn2" id="loadHistoryBtn">Refresh</button>
+        <div id="historyList"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modalView" class="overlay" style="display: none;">
+    <div class="modal">
+      <h3 id="modalViewTitle">Attendance</h3>
+      <button type="button" class="close" data-close="modalView">&times;</button>
+      <div class="body"><div id="modalViewBody"></div></div>
+      <div class="foot"><button type="button" class="btn btn2" data-close="modalView">Close</button></div>
+    </div>
+  </div>
+
+  <div id="modalEdit" class="overlay" style="display: none;">
+    <div class="modal">
+      <h3>Edit session</h3>
+      <button type="button" class="close" data-close="modalEdit">&times;</button>
+      <div class="body">
+        <input type="hidden" id="editSessionId">
+        <label>Subject</label>
+        <select id="editSubjectId"><option value="">Loading...</option></select>
+        <p class="small"><a href="#" id="linkAddSubject">Add subject</a> · <a href="#" id="linkEditSubject">Edit subject</a></p>
+        <div id="addSubjectBox" style="display: none;">
+          <label>New subject name</label>
+          <input type="text" id="newSubjectName" placeholder="e.g. Mathematics">
+          <label>Subject code</label>
+          <input type="text" id="newSubjectCode" placeholder="e.g. MATH101">
+          <button type="button" class="btn btn2" id="btnAddSubject">Add</button>
+        </div>
+        <div id="editSubjectBox" style="display: none;">
+          <label>Subject name</label>
+          <input type="text" id="editSubjectName" placeholder="Name">
+          <label>Subject code</label>
+          <input type="text" id="editSubjectCode" placeholder="Code">
+          <button type="button" class="btn btn2" id="btnSaveSubject">Save</button>
+        </div>
+        <label>Class start</label>
+        <div class="dt-row">
+          <select id="editStartMonth"></select>
+          <select id="editStartDay"></select>
+          <select id="editStartYear"></select>
+          <select id="editStartHour"></select>
+          <select id="editStartMinute"></select>
+        </div>
+        <label>Class end</label>
+        <div class="dt-row">
+          <select id="editEndMonth"></select>
+          <select id="editEndDay"></select>
+          <select id="editEndYear"></select>
+          <select id="editEndHour"></select>
+          <select id="editEndMinute"></select>
+        </div>
+      </div>
+      <div class="foot">
+        <button type="button" class="btn btn2" data-close="modalEdit">Cancel</button>
+        <button type="button" class="btn" id="btnSaveSession">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var API = '';
+    var TEACHER_KEY = 'smart_attendance_teacher';
+    var currentSessionId = null;
+    var qrRefreshInterval = null;
+
+    function el(id) { return document.getElementById(id); }
+
+    function getTeacher() {
+      try { return JSON.parse(sessionStorage.getItem(TEACHER_KEY) || 'null'); } catch (_) { return null; }
+    }
+    function setTeacher(t) { sessionStorage.setItem(TEACHER_KEY, JSON.stringify(t)); }
+    function clearTeacher() { sessionStorage.removeItem(TEACHER_KEY); }
+
+    function showAuth() {
+      el('authPanel').style.display = 'block';
+      el('dashboardPanel').style.display = 'none';
+      el('teacherNav').style.display = 'none';
+    }
+    function showDashboard(teacher) {
+      setTeacher(teacher);
+      el('authPanel').style.display = 'none';
+      el('dashboardPanel').style.display = 'block';
+      el('teacherNav').style.display = 'flex';
+      el('teacherNameNav').textContent = teacher.name;
+      el('teacherId').value = teacher.teacher_id;
+      setDefaultTimes();
+      loadSubjects();
+    }
+
+    var i, btn;
+    for (i = 0; i < document.querySelectorAll('.tab-btn').length; i++) {
+      btn = document.querySelectorAll('.tab-btn')[i];
+      btn.onclick = function() {
+        document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+        this.classList.add('active');
+        var tab = this.dataset.tab;
+        el('registerForm').style.display = tab === 'register' ? 'block' : 'none';
+        el('loginForm').style.display = tab === 'login' ? 'block' : 'none';
+        el('authMessage').innerHTML = '';
+      };
+    }
+
+    el('registerForm').onsubmit = async function(e) {
+      e.preventDefault();
+      var email = el('regEmail').value.trim().toLowerCase();
+      var name = el('regName').value.trim();
+      var r = await fetch(API + '/api/teachers/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: email, name: name }) });
+      var data = await r.json().catch(function() { return {}; });
+      if (!r.ok) { el('authMessage').innerHTML = '<p class="msg error">' + (data.error || 'Registration failed') + '</p>'; return; }
+      el('authMessage').innerHTML = '<p class="msg success">Registered. Logging you in...</p>';
+      showDashboard({ teacher_id: data.teacher_id, name: data.name, email: data.email });
+    };
+
+    el('loginForm').onsubmit = async function(e) {
+      e.preventDefault();
+      var email = el('loginEmail').value.trim().toLowerCase();
+      var r = await fetch(API + '/api/teachers/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: email }) });
+      var data = await r.json().catch(function() { return {}; });
+      if (!r.ok) { el('authMessage').innerHTML = '<p class="msg error">' + (data.error || 'Login failed') + '</p>'; return; }
+      el('authMessage').innerHTML = '<p class="msg success">Logged in.</p>';
+      showDashboard({ teacher_id: data.teacher_id, name: data.name, email: data.email });
+    };
+
+    el('logoutBtn').onclick = function() {
+      clearTeacher();
+      showAuth();
+      el('registerForm').reset();
+      el('loginForm').reset();
+      el('authMessage').innerHTML = '';
+    };
+
+    var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    function sel(prefix, id) { return el(prefix + id); }
+    function fillDateTimeDropdowns(prefix) {
+      var y = new Date().getFullYear();
+      var month = sel(prefix, 'Month');
+      var day = sel(prefix, 'Day');
+      var year = sel(prefix, 'Year');
+      var hour = sel(prefix, 'Hour');
+      var minute = sel(prefix, 'Minute');
+      if (!month) return;
+      month.innerHTML = MONTHS.map(function(m, i) { return '<option value="' + (i + 1) + '">' + m + '</option>'; }).join('');
+      var days = [], hrs = [], mins = [];
+      for (var i = 1; i <= 31; i++) days.push('<option value="' + i + '">' + i + '</option>');
+      day.innerHTML = days.join('');
+      year.innerHTML = [y - 1, y, y + 1, y + 2].map(function(yr) { return '<option value="' + yr + '">' + yr + '</option>'; }).join('');
+      for (i = 0; i < 24; i++) hrs.push('<option value="' + i + '">' + (i < 10 ? '0' : '') + i + '</option>');
+      hour.innerHTML = hrs.join('');
+      for (i = 0; i < 12; i++) { var m = i * 5; mins.push('<option value="' + m + '">' + (m < 10 ? '0' : '') + m + '</option>'); }
+      minute.innerHTML = mins.join('');
+    }
+    function setDropdownsFromDate(prefix, d) {
+      if (!sel(prefix, 'Month')) return;
+      sel(prefix, 'Month').value = d.getMonth() + 1;
+      sel(prefix, 'Day').value = d.getDate();
+      sel(prefix, 'Year').value = d.getFullYear();
+      sel(prefix, 'Hour').value = d.getHours();
+      var m = d.getMinutes();
+      sel(prefix, 'Minute').value = Math.min(55, Math.round(m / 5) * 5);
+    }
+    function getDateTimeFromDropdowns(prefix) {
+      var month = parseInt(sel(prefix, 'Month').value, 10) - 1;
+      var day = parseInt(sel(prefix, 'Day').value, 10);
+      var year = parseInt(sel(prefix, 'Year').value, 10);
+      var hour = parseInt(sel(prefix, 'Hour').value, 10);
+      var minute = parseInt(sel(prefix, 'Minute').value, 10);
+      return new Date(year, month, day, hour, minute, 0, 0);
+    }
+    function setDefaultTimes() {
+      fillDateTimeDropdowns('start');
+      fillDateTimeDropdowns('end');
+      var now = new Date();
+      setDropdownsFromDate('start', now);
+      setDropdownsFromDate('end', new Date(now.getTime() + 60 * 60 * 1000));
+    }
+    el('setNowBtn').onclick = setDefaultTimes;
+
+    var teacher = getTeacher();
+    if (teacher) showDashboard(teacher);
+
+    if (el('enforceLocation')) el('enforceLocation').onchange = function() { el('locFields').style.display = this.checked ? 'block' : 'none'; };
+    if (el('useMyLocation')) el('useMyLocation').onclick = function() {
+      if (!('geolocation' in navigator)) { alert('Geolocation not available'); return; }
+      navigator.geolocation.getCurrentPosition(function(pos) {
+        el('classroomLat').value = pos.coords.latitude.toFixed(6);
+        el('classroomLng').value = pos.coords.longitude.toFixed(6);
+      }, function() { alert('Could not get location'); }, { enableHighAccuracy: true, timeout: 8000 });
+    };
+
+    var subjectsCache = [];
+    async function loadSubjects() {
+      var r = await fetch(API + '/api/subjects');
+      subjectsCache = await r.json();
+      var opt = subjectsCache.map(function(s) { return '<option value="' + s.id + '">' + s.name + ' (' + s.code + ')</option>'; }).join('');
+      if (el('subjectId')) el('subjectId').innerHTML = opt;
+      if (el('editSubjectId')) el('editSubjectId').innerHTML = opt;
+      return subjectsCache;
+    }
+    function subjectName(id) {
+      var s = subjectsCache.filter(function(x) { return x.id === id; })[0];
+      return s ? s.name + ' (' + s.code + ')' : id;
+    }
+
+    for (i = 0; i < document.querySelectorAll('.section-tab').length; i++) {
+      (function(btn) {
+        btn.onclick = function() {
+          document.querySelectorAll('.section-tab').forEach(function(b) { b.classList.remove('active'); });
+          document.querySelectorAll('.section-content').forEach(function(c) { c.classList.remove('active'); });
+          btn.classList.add('active');
+          var section = btn.dataset.section;
+          el('section' + section.charAt(0).toUpperCase() + section.slice(1)).classList.add('active');
+          if (section === 'history') loadHistory();
+        };
+      })(document.querySelectorAll('.section-tab')[i]);
+    }
+
+    async function loadHistory() {
+      var t = getTeacher();
+      if (!t) return;
+      var r = await fetch(API + '/api/sessions?teacher_id=' + encodeURIComponent(t.teacher_id));
+      var sessions = await r.json();
+      await loadSubjects();
+      var listEl = el('historyList');
+      if (!sessions.length) {
+        listEl.innerHTML = '<p class="msg info">No sessions yet. Create a session in the Create session tab.</p>';
+        return;
+      }
+      listEl.innerHTML = '<table><thead><tr><th>Date</th><th>Subject</th><th>Start</th><th>End</th><th>Count</th><th></th></tr></thead><tbody>' +
+        sessions.map(function(s) {
+          var start = new Date(s.scheduled_start * 1000);
+          var end = new Date(s.scheduled_end * 1000);
+          var count = s.attendance_count != null ? s.attendance_count : '-';
+          return '<tr><td>' + start.toLocaleDateString() + '</td><td>' + subjectName(s.subject_id) + '</td><td>' + start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + '</td><td>' + end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + '</td><td>' + count + '</td><td class="table-actions"><button type="button" class="btn btn2" data-view="' + s.id + '">View</button><button type="button" class="btn btn2" data-edit="' + s.id + '" data-subject="' + s.subject_id + '" data-start="' + s.scheduled_start + '" data-end="' + s.scheduled_end + '">Edit</button></td></tr>';
+        }).join('') + '</tbody></table>';
+      document.querySelectorAll('[data-view]').forEach(function(b) {
+        b.onclick = async function() {
+          var sid = b.dataset.view;
+          var r2 = await fetch(API + '/api/sessions/' + sid + '/attendance');
+          var list = await r2.json();
+          var sess = sessions.filter(function(x) { return x.id === sid; })[0];
+          el('modalViewTitle').textContent = 'Attendance – ' + (sess ? subjectName(sess.subject_id) : '') + ' – ' + (sess ? new Date(sess.scheduled_start * 1000).toLocaleDateString() : '');
+          if (!list.length) el('modalViewBody').innerHTML = '<p class="msg info">No attendance.</p>';
+          else el('modalViewBody').innerHTML = '<table><thead><tr><th>Roll No</th><th>Name</th><th>Status</th><th>Time</th></tr></thead><tbody>' +
+            list.map(function(a) { return '<tr><td>' + a.roll_no + '</td><td>' + a.name + '</td><td><span class="badge badge-' + a.status + '">' + a.status + '</span></td><td>' + new Date(a.marked_at * 1000).toLocaleString() + '</td></tr>'; }).join('') + '</tbody></table>';
+          el('modalView').style.display = 'flex';
+        };
+      });
+      document.querySelectorAll('[data-edit]').forEach(function(b) {
+        b.onclick = function() {
+          var sid = b.dataset.edit;
+          el('editSessionId').value = sid;
+          el('editSubjectId').value = b.dataset.subject || '';
+          var start = parseInt(b.dataset.start, 10) * 1000;
+          var end = parseInt(b.dataset.end, 10) * 1000;
+          fillDateTimeDropdowns('editStart');
+          fillDateTimeDropdowns('editEnd');
+          setDropdownsFromDate('editStart', new Date(start));
+          setDropdownsFromDate('editEnd', new Date(end));
+          loadSubjects().then(function() { el('editSubjectId').value = b.dataset.subject || ''; });
+          el('modalEdit').style.display = 'flex';
+        };
+      });
+    }
+    el('loadHistoryBtn').onclick = loadHistory;
+
+    el('linkAddSubjectCreate').onclick = function(e) {
+      e.preventDefault();
+      el('addSubjectBoxCreate').style.display = el('addSubjectBoxCreate').style.display === 'none' ? 'block' : 'none';
+    };
+    el('btnAddSubjectCreate').onclick = async function() {
+      var name = el('newSubjectNameCreate').value.trim();
+      var code = el('newSubjectCodeCreate').value.trim().toUpperCase();
+      if (!name || !code) { alert('Name and code required'); return; }
+      var r = await fetch(API + '/api/subjects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name, code: code }) });
+      var data = await r.json().catch(function() { return {}; });
+      if (!r.ok) { alert(data.error || 'Failed'); return; }
+      await loadSubjects();
+      el('subjectId').value = data.id;
+      el('addSubjectBoxCreate').style.display = 'none';
+      el('newSubjectNameCreate').value = '';
+      el('newSubjectCodeCreate').value = '';
+    };
+    el('linkEditSubjectCreate').onclick = function(e) {
+      e.preventDefault();
+      var id = el('subjectId').value;
+      if (!id) { alert('Select a subject first'); return; }
+      var s = subjectsCache.filter(function(x) { return x.id === id; })[0];
+      if (!s) return;
+      el('editSubjectNameCreate').value = s.name;
+      el('editSubjectCodeCreate').value = s.code;
+      el('editSubjectBoxCreate').style.display = 'block';
+      el('addSubjectBoxCreate').style.display = 'none';
+      el('editSubjectBoxCreate').dataset.subjectId = id;
+    };
+    el('btnSaveSubjectCreate').onclick = async function() {
+      var id = el('editSubjectBoxCreate').dataset.subjectId;
+      if (!id) return;
+      var name = el('editSubjectNameCreate').value.trim();
+      var code = el('editSubjectCodeCreate').value.trim().toUpperCase();
+      if (!name || !code) { alert('Name and code required'); return; }
+      var r = await fetch(API + '/api/subjects/' + id, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name, code: code }) });
+      if (!r.ok) { var data = await r.json().catch(function() { return {}; }); alert(data.error || 'Failed'); return; }
+      await loadSubjects();
+      el('subjectId').value = id;
+      el('editSubjectBoxCreate').style.display = 'none';
+    };
+
+    document.querySelectorAll('[data-close]').forEach(function(btn) {
+      btn.onclick = function() { el(btn.dataset.close).style.display = 'none'; };
+    });
+    el('modalView').addEventListener('click', function(e) { if (e.target === this) this.style.display = 'none'; });
+    el('modalEdit').addEventListener('click', function(e) { if (e.target === this) this.style.display = 'none'; });
+
+    el('linkAddSubject').onclick = function(e) {
+      e.preventDefault();
+      el('addSubjectBox').style.display = 'block';
+      el('editSubjectBox').style.display = 'none';
+    };
+    el('btnAddSubject').onclick = async function() {
+      var name = el('newSubjectName').value.trim();
+      var code = el('newSubjectCode').value.trim().toUpperCase();
+      if (!name || !code) { alert('Name and code required'); return; }
+      var r = await fetch(API + '/api/subjects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name, code: code }) });
+      var data = await r.json().catch(function() { return {}; });
+      if (!r.ok) { alert(data.error || 'Failed'); return; }
+      await loadSubjects();
+      el('editSubjectId').value = data.id;
+      el('addSubjectBox').style.display = 'none';
+      el('newSubjectName').value = '';
+      el('newSubjectCode').value = '';
+    };
+    var editingSubjectId = null;
+    el('linkEditSubject').onclick = function(e) {
+      e.preventDefault();
+      var id = el('editSubjectId').value;
+      if (!id) { alert('Select a subject first'); return; }
+      var s = subjectsCache.filter(function(x) { return x.id === id; })[0];
+      if (!s) return;
+      editingSubjectId = id;
+      el('editSubjectName').value = s.name;
+      el('editSubjectCode').value = s.code;
+      el('editSubjectBox').style.display = 'block';
+      el('addSubjectBox').style.display = 'none';
+    };
+    el('btnSaveSubject').onclick = async function() {
+      if (!editingSubjectId) return;
+      var name = el('editSubjectName').value.trim();
+      var code = el('editSubjectCode').value.trim().toUpperCase();
+      if (!name || !code) { alert('Name and code required'); return; }
+      var r = await fetch(API + '/api/subjects/' + editingSubjectId, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name, code: code }) });
+      if (!r.ok) { var data = await r.json().catch(function() { return {}; }); alert(data.error || 'Failed'); return; }
+      await loadSubjects();
+      el('editSubjectId').value = editingSubjectId;
+      el('editSubjectBox').style.display = 'none';
+      editingSubjectId = null;
+    };
+    el('btnSaveSession').onclick = async function() {
+      var sid = el('editSessionId').value;
+      var subject_id = el('editSubjectId').value;
+      var startDate = getDateTimeFromDropdowns('editStart');
+      var endDate = getDateTimeFromDropdowns('editEnd');
+      var t = getTeacher();
+      if (!t || !sid) return;
+      var r = await fetch(API + '/api/sessions/' + sid, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teacher_id: t.teacher_id, subject_id: subject_id || undefined, scheduled_start: Math.floor(startDate.getTime() / 1000), scheduled_end: Math.floor(endDate.getTime() / 1000) }),
+      });
+      var data = await r.json().catch(function() { return {}; });
+      if (!r.ok) { alert(data.error || 'Failed'); return; }
+      el('modalEdit').style.display = 'none';
+      loadHistory();
+    };
+
+    el('createSession').onsubmit = async function(e) {
+      e.preventDefault();
+      var startDate = getDateTimeFromDropdowns('start');
+      var endDate = getDateTimeFromDropdowns('end');
+      var payload = {
+        subject_id: el('subjectId').value,
+        teacher_id: el('teacherId').value,
+        scheduled_start: Math.floor(startDate.getTime() / 1000),
+        scheduled_end: Math.floor(endDate.getTime() / 1000),
+      };
+      var enforce = el('enforceLocation').checked;
+      if (enforce) {
+        var lat = parseFloat(el('classroomLat').value);
+        var lng = parseFloat(el('classroomLng').value);
+        if (isNaN(lat) || isNaN(lng)) { alert('Set classroom location or use my location'); return; }
+        payload.classroom_lat = lat;
+        payload.classroom_lng = lng;
+      }
+      var r = await fetch(API + '/api/sessions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      var data = await r.json().catch(function() { return {}; });
+      if (!r.ok) { alert(data.error || 'Failed to create session'); return; }
+      currentSessionId = data.session_id;
+      el('qrPanel').style.display = 'block';
+      el('attendancePanel').style.display = 'block';
+      el('qrSessionId').textContent = currentSessionId;
+      startQrRefresh();
+      loadAttendance();
+    };
+
+    async function fetchQr() {
+      if (!currentSessionId) return;
+      var r = await fetch(API + '/api/sessions/' + currentSessionId + '/qr');
+      var data = await r.json().catch(function() { return {}; });
+      if (!r.ok) { el('qrContainer').innerHTML = '<p class="msg error">' + (data.error || 'QR failed') + '</p>'; return; }
+      var code = data.code || '';
+      el('qrContainer').innerHTML = '<div class="qr-wrap"><img src="' + data.qr_data_url + '" alt="QR"></div><p class="code-big">Code: <strong>' + code + '</strong></p>';
+      var expiresAt = data.expires_at * 1000;
+      function updateTimer() {
+        var left = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
+        el('qrTimer').textContent = 'Expires in ' + left + 's';
+      }
+      updateTimer();
+      var t = setInterval(updateTimer, 1000);
+      setTimeout(function() { clearInterval(t); }, (data.valid_seconds + 2) * 1000);
+    }
+    function startQrRefresh() {
+      if (qrRefreshInterval) clearInterval(qrRefreshInterval);
+      fetchQr();
+      qrRefreshInterval = setInterval(fetchQr, 45 * 1000);
+    }
+    el('refreshQr').onclick = function() { fetchQr(); };
+
+    el('stopAttendanceBtn').onclick = async function() {
+      if (!currentSessionId) return;
+      if (!confirm('Stop taking attendance? Students will no longer be able to mark for this session.')) return;
+      var t = getTeacher();
+      if (!t) return;
+      var r = await fetch(API + '/api/sessions/' + currentSessionId + '/stop', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ teacher_id: t.teacher_id }) });
+      var data = await r.json().catch(function() { return {}; });
+      if (!r.ok) { alert(data.error || 'Failed to stop attendance'); return; }
+      if (qrRefreshInterval) { clearInterval(qrRefreshInterval); qrRefreshInterval = null; }
+      el('qrContainer').innerHTML = '<p class="msg info">Attendance closed. No more students can mark for this session.</p>';
+      el('qrTimer').textContent = 'Closed';
+      el('refreshQr').disabled = true;
+      el('stopAttendanceBtn').disabled = true;
+      el('sessionStoppedMsg').style.display = 'block';
+      el('sessionStoppedMsg').textContent = data.message || 'Attendance stopped.';
+      el('sessionStoppedMsg').className = 'msg success';
+    };
+
+    async function loadAttendance() {
+      if (!currentSessionId) return;
+      var r = await fetch(API + '/api/sessions/' + currentSessionId + '/attendance');
+      var list = await r.json();
+      var listEl = el('attendanceList');
+      if (!list.length) { listEl.innerHTML = '<p class="msg info">No attendance yet.</p>'; return; }
+      listEl.innerHTML = '<table><thead><tr><th>Roll No</th><th>Name</th><th>Status</th><th>Time</th></tr></thead><tbody>' +
+        list.map(function(a) { return '<tr><td>' + a.roll_no + '</td><td>' + a.name + '</td><td><span class="badge badge-' + a.status + '">' + a.status + '</span></td><td>' + new Date(a.marked_at * 1000).toLocaleString() + '</td></tr>'; }).join('') + '</tbody></table>';
+    }
+    el('loadAttendance').onclick = loadAttendance;
+  </script>
+</body>
+</html>

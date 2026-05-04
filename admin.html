@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin – Attendance</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="nav"><a href="index.html">Home</a> <a href="admin.html">Admin</a></div>
+
+  <div class="box">
+    <h2>Logs</h2>
+    <button type="button" class="btn btn2" id="btnLogs">Refresh</button>
+    <div id="logs"></div>
+  </div>
+
+  <div class="box">
+    <h2>Sessions</h2>
+    <button type="button" class="btn btn2" id="btnSessions">Refresh</button>
+    <div id="sessions"></div>
+  </div>
+
+  <script>
+    function loadLogs() {
+      fetch('/api/admin/logs').then(function(r) { return r.json(); }).then(function(list) {
+        var el = document.getElementById('logs');
+        if (list.length === 0) el.innerHTML = '<p class="msg info">No logs.</p>';
+        else el.innerHTML = list.map(function(l) {
+          var time = new Date(l.created_at * 1000).toLocaleString();
+          return '<div class="log-line"><span class="t">' + time + '</span> ' + l.action + ' ' + (l.details || '') + '</div>';
+        }).join('');
+      });
+    }
+    function loadSessions() {
+      fetch('/api/sessions').then(function(r) { return r.json(); }).then(function(list) {
+        var el = document.getElementById('sessions');
+        if (list.length === 0) el.innerHTML = '<p class="msg info">No sessions.</p>';
+        else {
+          var rows = list.map(function(s) {
+            var start = new Date(s.scheduled_start * 1000).toLocaleString();
+            var end = new Date(s.scheduled_end * 1000).toLocaleString();
+            return '<tr><td>' + s.id.slice(0, 8) + '</td><td>' + s.subject_id + '</td><td>' + s.teacher_id + '</td><td>' + start + '</td><td>' + end + '</td><td>' + (s.locked ? 'Yes' : 'No') + '</td></tr>';
+          }).join('');
+          el.innerHTML = '<table><tr><th>Session</th><th>Subject</th><th>Teacher</th><th>Start</th><th>End</th><th>Locked</th></tr>' + rows + '</table>';
+        }
+      });
+    }
+    document.getElementById('btnLogs').onclick = loadLogs;
+    document.getElementById('btnSessions').onclick = loadSessions;
+    loadLogs();
+    loadSessions();
+  </script>
+</body>
+</html>
